@@ -21,7 +21,6 @@ func NewCmdHelm() *cobra.Command {
 		},
 	}
 	command.AddCommand(cobras.SplitCommand(NewCmdHelmTemplate()))
-	command.AddCommand(cobras.SplitCommand(NewCmdHelmStream()))
 	command.AddCommand(cobras.SplitCommand(build.NewCmdHelmBuild()))
 	command.AddCommand(cobras.SplitCommand(release.NewCmdHelmRelease()))
 	return command

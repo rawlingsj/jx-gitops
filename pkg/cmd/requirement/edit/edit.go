@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jenkins-x/jx-api/v3/pkg/config"
+	jxcore "github.com/jenkins-x/jx-api/v4/pkg/apis/core/v4beta1"
 	"github.com/jenkins-x/jx-gitops/pkg/rootcmd"
 	"github.com/jenkins-x/jx-helpers/v3/pkg/cobras/helper"
 	"github.com/jenkins-x/jx-helpers/v3/pkg/gitclient/giturl"
@@ -23,12 +23,17 @@ import (
 // Options the CLI options for this command
 type Options struct {
 	Dir           string
-	Requirements  config.RequirementsConfig
+	Requirements  jxcore.RequirementsConfig
 	SecretStorage string
 	Webhook       string
 	Flags         RequirementBools
 	Cmd           *cobra.Command
 	Args          []string
+
+	logsURL       string
+	backupsURL    string
+	reportsURL    string
+	repositoryURL string
 }
 
 // RequirementBools for the boolean flags we only update if specified on the CLI
@@ -80,16 +85,14 @@ func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
 	cmd.Flags().BoolVarP(&o.Flags.VaultDisableURLDiscover, "vault-disable-url-discover", "", false, "override the default lookup of the Vault URL, could be incluster service or external ingress")
 
 	// requirements
-	cmd.Flags().StringVarP(&o.Requirements.BootConfigURL, "boot-config-url", "", "", "specify the boot configuration git URL")
-	cmd.Flags().StringVarP(&o.SecretStorage, "secret", "s", "", fmt.Sprintf("configures the kind of secret storage. Values: %s", strings.Join(config.SecretStorageTypeValues, ", ")))
-	cmd.Flags().StringVarP(&o.Webhook, "webhook", "w", "", fmt.Sprintf("configures the kind of webhook. Values %s", strings.Join(config.WebhookTypeValues, ", ")))
+	cmd.Flags().StringVarP(&o.SecretStorage, "secret", "s", "", fmt.Sprintf("configures the kind of secret storage. Values: %s", strings.Join(jxcore.SecretStorageTypeValues, ", ")))
+	cmd.Flags().StringVarP(&o.Webhook, "webhook", "w", "", fmt.Sprintf("configures the kind of webhook. Values %s", strings.Join(jxcore.WebhookTypeValues, ", ")))
 
 	// auto upgrade
 	cmd.Flags().StringVarP(&o.Requirements.AutoUpdate.Schedule, "autoupdate-schedule", "", "", "the cron schedule for auto upgrading your cluster")
 
 	// cluster
 	cmd.Flags().StringVarP(&o.Requirements.Cluster.ClusterName, "cluster", "c", "", "configures the cluster name")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.Namespace, "namespace", "n", "", "configures the namespace to use")
 	cmd.Flags().StringVarP(&o.Requirements.Cluster.Provider, "provider", "p", "", "configures the kubernetes provider")
 	cmd.Flags().StringVarP(&o.Requirements.Cluster.ProjectID, "project", "", "", "configures the Google Project ID")
 	cmd.Flags().StringVarP(&o.Requirements.Cluster.Registry, "registry", "", "", "configures the host name of the container registry")
@@ -98,7 +101,6 @@ func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
 
 	cmd.Flags().StringVarP(&o.Requirements.Cluster.ExternalDNSSAName, "extdns-sa", "", "", "configures the External DNS service account name")
 	cmd.Flags().StringVarP(&o.Requirements.Cluster.KanikoSAName, "kaniko-sa", "", "", "configures the Kaniko service account name")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.HelmMajorVersion, "helm-version", "", "", "configures the Helm major version. e.g. 3 to try helm 3")
 
 	// git
 	cmd.Flags().StringVarP(&o.Requirements.Cluster.GitKind, "git-kind", "", "", fmt.Sprintf("the kind of git repository to use. Possible values: %s", strings.Join(giturl.KindGits, ", ")))
@@ -111,10 +113,10 @@ func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
 	cmd.Flags().StringVarP(&o.Requirements.Ingress.TLS.Email, "tls-email", "", "", "the TLS email address to enable TLS on the domain")
 
 	// storage
-	cmd.Flags().StringVarP(&o.Requirements.Storage.Logs.URL, "bucket-logs", "", "", "the bucket URL to store logs")
-	cmd.Flags().StringVarP(&o.Requirements.Storage.Backup.URL, "bucket-backups", "", "", "the bucket URL to store backups")
-	cmd.Flags().StringVarP(&o.Requirements.Storage.Repository.URL, "bucket-repo", "", "", "the bucket URL to store repository artifacts")
-	cmd.Flags().StringVarP(&o.Requirements.Storage.Reports.URL, "bucket-reports", "", "", "the bucket URL to store reports. If not specified default to te logs bucket")
+	cmd.Flags().StringVarP(&o.logsURL, "bucket-logs", "", "", "the bucket URL to store logs")
+	cmd.Flags().StringVarP(&o.backupsURL, "bucket-backups", "", "", "the bucket URL to store backups")
+	cmd.Flags().StringVarP(&o.repositoryURL, "bucket-repo", "", "", "the bucket URL to store repository artifacts")
+	cmd.Flags().StringVarP(&o.reportsURL, "bucket-reports", "", "", "the bucket URL to store reports. If not specified default to te logs bucket")
 
 	// vault
 	cmd.Flags().StringVarP(&o.Requirements.Vault.Name, "vault-name", "", "", "specify the vault name")
@@ -123,24 +125,18 @@ func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
 	cmd.Flags().StringVarP(&o.Requirements.Vault.Key, "vault-key", "", "", "specify the vault key")
 	cmd.Flags().StringVarP(&o.Requirements.Vault.ServiceAccount, "vault-sa", "", "", "specify the vault Service Account name")
 
-	// velero
-	cmd.Flags().StringVarP(&o.Requirements.Velero.ServiceAccount, "velero-sa", "", "", "specify the Velero Service Account name")
-	cmd.Flags().StringVarP(&o.Requirements.Velero.Namespace, "velero-ns", "", "", "specify the Velero Namespace")
-
-	// version stream
-	cmd.Flags().StringVarP(&o.Requirements.VersionStream.URL, "version-stream-url", "", "", "specify the Version Stream git URL")
-	cmd.Flags().StringVarP(&o.Requirements.VersionStream.Ref, "version-stream-ref", "", "", "specify the Version Stream git reference (branch, tag, sha)")
 	return cmd, o
 }
 
 // Run runs the command
 func (o *Options) Run() error {
-	requirements, fileName, err := config.LoadRequirementsConfig(o.Dir, config.DefaultFailOnValidationError)
+	requirementsResource, fileName, err := jxcore.LoadRequirementsConfig(o.Dir, jxcore.DefaultFailOnValidationError)
 	if err != nil {
 		return err
 	}
+	requirements := &requirementsResource.Spec
 	if fileName == "" {
-		fileName = filepath.Join(o.Dir, config.RequirementsConfigFileName)
+		fileName = filepath.Join(o.Dir, jxcore.RequirementsConfigFileName)
 	}
 	o.Requirements = *requirements
 
@@ -155,7 +151,7 @@ func (o *Options) Run() error {
 		return err
 	}
 
-	err = o.Requirements.SaveConfig(fileName)
+	err = requirementsResource.SaveConfig(fileName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to save %s", fileName)
 	}
@@ -179,12 +175,6 @@ func (o *Options) applyDefaults() error {
 	if o.FlagChanged("env-git-public") {
 		r.Cluster.EnvironmentGitPublic = o.Flags.EnvironmentGitPublic
 	}
-	if o.FlagChanged("gitops") {
-		r.GitOps = o.Flags.GitOps
-	}
-	if o.FlagChanged("kaniko") {
-		r.Kaniko = o.Flags.Kaniko
-	}
 	if o.FlagChanged("terraform") {
 		r.Terraform = o.Flags.Terraform
 	}
@@ -199,23 +189,19 @@ func (o *Options) applyDefaults() error {
 	if o.SecretStorage != "" {
 		switch o.SecretStorage {
 		case "local":
-			r.SecretStorage = config.SecretStorageTypeLocal
+			r.SecretStorage = jxcore.SecretStorageTypeLocal
 		case "vault":
-			r.SecretStorage = config.SecretStorageTypeVault
+			r.SecretStorage = jxcore.SecretStorageTypeVault
 		default:
-			return options.InvalidOption("secret", o.SecretStorage, config.SecretStorageTypeValues)
+			return options.InvalidOption("secret", o.SecretStorage, jxcore.SecretStorageTypeValues)
 		}
 	}
 	if o.Webhook != "" {
 		switch o.Webhook {
-		case "jenkins":
-			r.Webhook = config.WebhookTypeJenkins
 		case "lighthouse":
-			r.Webhook = config.WebhookTypeLighthouse
-		case "prow":
-			r.Webhook = config.WebhookTypeProw
+			r.Webhook = jxcore.WebhookTypeLighthouse
 		default:
-			return options.InvalidOption("webhook", o.Webhook, config.WebhookTypeValues)
+			return options.InvalidOption("webhook", o.Webhook, jxcore.WebhookTypeValues)
 		}
 	}
 
@@ -228,14 +214,21 @@ func (o *Options) applyDefaults() error {
 	}
 
 	// enable storage if we specify a URL
-	storage := &r.Storage
-	if storage.Logs.URL != "" && storage.Reports.URL == "" {
-		storage.Reports.URL = storage.Logs.URL
+	if r.GetStorageURL("logs") != "" && r.GetStorageURL("reports") == "" {
+		r.AddOrUpdateStorageURL("reports", r.GetStorageURL("logs"))
 	}
-	o.defaultStorage(&storage.Backup)
-	o.defaultStorage(&storage.Logs)
-	o.defaultStorage(&storage.Reports)
-	o.defaultStorage(&storage.Repository)
+	if o.logsURL != "" {
+		r.AddOrUpdateStorageURL("logs", o.logsURL)
+	}
+	if o.backupsURL != "" {
+		r.AddOrUpdateStorageURL("backup", o.backupsURL)
+	}
+	if o.reportsURL != "" {
+		r.AddOrUpdateStorageURL("reports", o.reportsURL)
+	}
+	if o.repositoryURL != "" {
+		r.AddOrUpdateStorageURL("repository", o.repositoryURL)
+	}
 	return nil
 }
 
@@ -248,10 +241,4 @@ func (o *Options) FlagChanged(name string) bool {
 		}
 	}
 	return false
-}
-
-func (o *Options) defaultStorage(storage *config.StorageEntryConfig) {
-	if storage.URL != "" {
-		storage.Enabled = true
-	}
 }

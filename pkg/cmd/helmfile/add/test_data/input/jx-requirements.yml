@@ -1,8 +1,4 @@
 cluster:
-  namespace: jx
   provider: gke
   clusterName: mycluster
   project: myproject
-versionStream:
-  ref: master
-  url: https://github.com/jenkins-x/jxr-versions.git

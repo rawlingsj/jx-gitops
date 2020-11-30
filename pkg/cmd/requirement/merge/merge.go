@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/jenkins-x/jx-api/v3/pkg/config"
+	jxcore "github.com/jenkins-x/jx-api/v4/pkg/apis/core/v4beta1"
 	"github.com/jenkins-x/jx-gitops/pkg/rootcmd"
 	"github.com/jenkins-x/jx-helpers/v3/pkg/cobras/helper"
 	"github.com/jenkins-x/jx-helpers/v3/pkg/cobras/templates"
@@ -56,7 +56,7 @@ type Options struct {
 	Namespace            string
 	ConfigMapName        string
 	KubeClient           kubernetes.Interface
-	requirements         *config.RequirementsConfig
+	requirements         *jxcore.RequirementsConfig
 	requirementsFileName string
 }
 
@@ -94,16 +94,18 @@ func (o *Options) Run() error {
 		}
 
 	}
-	o.requirements, o.requirementsFileName, err = config.LoadRequirementsConfig(o.Dir, false)
+	var requirementsResource *jxcore.Requirements
+	requirementsResource, o.requirementsFileName, err = jxcore.LoadRequirementsConfig(o.Dir, false)
 	if err != nil {
 		return errors.Wrapf(err, "failed to load requirements in dir %s", o.Dir)
 	}
+	o.requirements = &requirementsResource.Spec
 	if o.requirementsFileName == "" {
-		o.requirementsFileName = filepath.Join(o.Dir, config.RequirementsConfigFileName)
+		o.requirementsFileName = filepath.Join(o.Dir, jxcore.RequirementsConfigFileName)
 	}
 
 	// lets not se the usual loading as we dno't want any default values populated
-	requirementChanges := &config.RequirementsConfig{}
+	requirementChanges := &jxcore.RequirementsConfig{}
 	err = yamls.LoadFile(o.File, requirementChanges)
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmarshal YAML changes from file: %s", o.File)
@@ -126,7 +128,7 @@ func (o *Options) Run() error {
 		o.requirements = requirementChanges
 	}
 
-	err = o.requirements.SaveConfig(o.requirementsFileName)
+	err = requirementsResource.SaveConfig(o.requirementsFileName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to save file %s", o.requirementsFileName)
 	}
@@ -136,7 +138,7 @@ func (o *Options) Run() error {
 }
 
 // MergeChanges merges changes from the given requirements into the source
-func (o *Options) MergeChanges(changes *config.RequirementsConfig) error {
+func (o *Options) MergeChanges(changes *jxcore.RequirementsConfig) error {
 	to := o.requirements
 	cluster := changes.Cluster
 
@@ -148,7 +150,6 @@ func (o *Options) MergeChanges(changes *config.RequirementsConfig) error {
 	cluster.GitKind = mergeString(cluster.GitKind, to.Cluster.GitKind)
 	cluster.GitName = mergeString(cluster.GitName, to.Cluster.GitName)
 	cluster.GitServer = mergeString(cluster.GitServer, to.Cluster.GitServer)
-	cluster.Namespace = mergeString(cluster.Namespace, to.Cluster.Namespace)
 	cluster.Provider = mergeString(cluster.Provider, to.Cluster.Provider)
 	cluster.Registry = mergeString(cluster.Registry, to.Cluster.Registry)
 	to.Cluster = cluster
