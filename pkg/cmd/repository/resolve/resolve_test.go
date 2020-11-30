@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/jenkins-x/jx-api/v3/pkg/config"
+	jxcore "github.com/jenkins-x/jx-api/v4/pkg/apis/core/v4beta1"
 	"github.com/jenkins-x/jx-gitops/pkg/cmd/repository/resolve"
 	"github.com/jenkins-x/jx-helpers/v3/pkg/files"
 	"github.com/stretchr/testify/assert"
@@ -104,7 +104,7 @@ func TestResolveRepositoryInRequirements(t *testing.T) {
 	err = o.Run([]string{gitURL})
 	require.NoError(t, err, "failed to run the command in dir %s", tmpDir)
 
-	requirements, _, err := config.LoadRequirementsConfig(tmpDir, true)
+	requirements, _, err := jxcore.LoadRequirementsConfig(tmpDir, true)
 	require.NoError(t, err, "failed to load requirements file %s", outFile)
 	require.NotNil(t, requirements, "no requirements file %s", outFile)
 
