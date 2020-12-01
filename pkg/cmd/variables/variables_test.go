@@ -58,7 +58,7 @@ func TestCmdVariables(t *testing.T) {
 		devEnv.Spec.Source.URL = "https://github.com/myorg/myrepo.git"
 
 		requirements := jxcore.NewRequirementsConfig()
-		requirements.Cluster.ChartRepository = "http://bucketrepo/bucketrepo/charts/"
+		requirements.Spec.Cluster.ChartRepository = "http://bucketrepo/bucketrepo/charts/"
 		data, err := yaml.Marshal(requirements)
 		require.NoError(t, err, "failed to marshal requirements")
 		devEnv.Spec.TeamSettings.BootRequirements = string(data)

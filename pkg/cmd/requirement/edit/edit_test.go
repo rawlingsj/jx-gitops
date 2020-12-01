@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jenkins-x/jx-api/pkg/config"
 	jxcore "github.com/jenkins-x/jx-api/v4/pkg/apis/core/v4beta1"
 )
 
@@ -105,7 +104,7 @@ func TestCmdRequirementsEdit(t *testing.T) {
 		file := localReqFile
 		require.FileExists(t, file, "should have generated the requirements file")
 
-		req, _, err := jxcore.LoadRequirementsConfig(dir, config.DefaultFailOnValidationError)
+		req, _, err := jxcore.LoadRequirementsConfig(dir, jxcore.DefaultFailOnValidationError)
 		require.NoError(t, err, "failed to load requirements from dir %s", dir)
 
 		if tt.callback != nil {

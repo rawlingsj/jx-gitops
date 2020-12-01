@@ -104,8 +104,8 @@ func (o *Options) Run() error {
 		o.requirementsFileName = filepath.Join(o.Dir, jxcore.RequirementsConfigFileName)
 	}
 
-	// lets not se the usual loading as we dno't want any default values populated
-	requirementChanges := &jxcore.RequirementsConfig{}
+	// lets not se the usual loading as we don't want any default values populated
+	requirementChanges := &jxcore.Requirements{}
 	err = yamls.LoadFile(o.File, requirementChanges)
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmarshal YAML changes from file: %s", o.File)
@@ -125,7 +125,7 @@ func (o *Options) Run() error {
 			return errors.Wrapf(err, "failed to merge changes from %s", o.File)
 		}
 	} else {
-		o.requirements = requirementChanges
+		o.requirements = &requirementChanges.Spec
 	}
 
 	err = requirementsResource.SaveConfig(o.requirementsFileName)
@@ -138,8 +138,9 @@ func (o *Options) Run() error {
 }
 
 // MergeChanges merges changes from the given requirements into the source
-func (o *Options) MergeChanges(changes *jxcore.RequirementsConfig) error {
+func (o *Options) MergeChanges(reqs *jxcore.Requirements) error {
 	to := o.requirements
+	changes := &reqs.Spec
 	cluster := changes.Cluster
 
 	// lets pull in any values missing from the source

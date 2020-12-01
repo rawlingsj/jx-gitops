@@ -72,7 +72,6 @@ func TestResolveRepositorySourceDir(t *testing.T) {
 		if d := cmp.Diff(result, expectedText); d != "" {
 			t.Errorf("Generated Pipeline for file %s did not match expected: %s", tc.SourceFile, d)
 		}
-		t.Logf("generated for file %s file\n%s\n", tc.SourceFile, result)
 	}
 }
 

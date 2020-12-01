@@ -55,7 +55,7 @@ func TestWebhookVerify(t *testing.T) {
 	)
 
 	requirements := jxcore.NewRequirementsConfig()
-	requirements.Cluster.ChartRepository = "http://bucketrepo/bucketrepo/charts/"
+	requirements.Spec.Cluster.ChartRepository = "http://bucketrepo/bucketrepo/charts/"
 	data, err := yaml.Marshal(requirements)
 	require.NoError(t, err, "failed to marshal requirements")
 

@@ -23,7 +23,7 @@ import (
 // Options the CLI options for this command
 type Options struct {
 	Dir           string
-	Requirements  jxcore.RequirementsConfig
+	Requirements  *jxcore.Requirements
 	SecretStorage string
 	Webhook       string
 	Flags         RequirementBools
@@ -55,7 +55,15 @@ var (
 
 // NewCmdRequirementsEdit creates the new command
 func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
-	o := &Options{}
+	o := &Options{
+		Requirements: jxcore.Requirements{
+			Spec: jxcore.RequirementsConfig{
+				Ingress: jxcore.IngressConfig{
+					TLS: &jxcore.TLSConfig{},
+				},
+			},
+		},
+	}
 	cmd := &cobra.Command{
 		Use:     "edit",
 		Short:   "Edits the local 'jx-requirements.yml file",
@@ -78,9 +86,6 @@ func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
 	// bools
 	cmd.Flags().BoolVarP(&o.Flags.AutoUpgrade, "autoupgrade", "", false, "enables or disables auto upgrades")
 	cmd.Flags().BoolVarP(&o.Flags.EnvironmentGitPublic, "env-git-public", "", false, "enables or disables whether the environment repositories should be public")
-	cmd.Flags().BoolVarP(&o.Flags.GitOps, "gitops", "g", false, "enables or disables the use of gitops")
-	cmd.Flags().BoolVarP(&o.Flags.Kaniko, "kaniko", "", false, "enables or disables the use of kaniko")
-	cmd.Flags().BoolVarP(&o.Flags.Terraform, "terraform", "", false, "enables or disables the use of terraform")
 	cmd.Flags().BoolVarP(&o.Flags.VaultRecreateBucket, "vault-recreate-bucket", "", false, "enables or disables whether to rereate the secret bucket on boot")
 	cmd.Flags().BoolVarP(&o.Flags.VaultDisableURLDiscover, "vault-disable-url-discover", "", false, "override the default lookup of the Vault URL, could be incluster service or external ingress")
 
@@ -89,28 +94,28 @@ func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
 	cmd.Flags().StringVarP(&o.Webhook, "webhook", "w", "", fmt.Sprintf("configures the kind of webhook. Values %s", strings.Join(jxcore.WebhookTypeValues, ", ")))
 
 	// auto upgrade
-	cmd.Flags().StringVarP(&o.Requirements.AutoUpdate.Schedule, "autoupdate-schedule", "", "", "the cron schedule for auto upgrading your cluster")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.AutoUpdate.Schedule, "autoupdate-schedule", "", "", "the cron schedule for auto upgrading your cluster")
 
 	// cluster
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.ClusterName, "cluster", "c", "", "configures the cluster name")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.Provider, "provider", "p", "", "configures the kubernetes provider")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.ProjectID, "project", "", "", "configures the Google Project ID")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.Registry, "registry", "", "", "configures the host name of the container registry")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.Region, "region", "r", "", "configures the cloud region")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.Zone, "zone", "z", "", "configures the cloud zone")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.ClusterName, "cluster", "c", "", "configures the cluster name")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.Provider, "provider", "p", "", "configures the kubernetes provider")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.ProjectID, "project", "", "", "configures the Google Project ID")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.Registry, "registry", "", "", "configures the host name of the container registry")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.Region, "region", "r", "", "configures the cloud region")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.Zone, "zone", "z", "", "configures the cloud zone")
 
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.ExternalDNSSAName, "extdns-sa", "", "", "configures the External DNS service account name")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.KanikoSAName, "kaniko-sa", "", "", "configures the Kaniko service account name")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.ExternalDNSSAName, "extdns-sa", "", "", "configures the External DNS service account name")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.KanikoSAName, "kaniko-sa", "", "", "configures the Kaniko service account name")
 
 	// git
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.GitKind, "git-kind", "", "", fmt.Sprintf("the kind of git repository to use. Possible values: %s", strings.Join(giturl.KindGits, ", ")))
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.GitName, "git-name", "", "", "the name of the git repository")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.GitServer, "git-server", "", "", "the git server host such as https://github.com or https://gitlab.com")
-	cmd.Flags().StringVarP(&o.Requirements.Cluster.EnvironmentGitOwner, "env-git-owner", "", "", "the git owner (organisation or user) used to own the git repositories for the environments")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.GitKind, "git-kind", "", "", fmt.Sprintf("the kind of git repository to use. Possible values: %s", strings.Join(giturl.KindGits, ", ")))
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.GitName, "git-name", "", "", "the name of the git repository")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.GitServer, "git-server", "", "", "the git server host such as https://github.com or https://gitlab.com")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Cluster.EnvironmentGitOwner, "env-git-owner", "", "", "the git owner (organisation or user) used to own the git repositories for the environments")
 
 	// ingress
-	cmd.Flags().StringVarP(&o.Requirements.Ingress.Domain, "domain", "d", "", "configures the domain name")
-	cmd.Flags().StringVarP(&o.Requirements.Ingress.TLS.Email, "tls-email", "", "", "the TLS email address to enable TLS on the domain")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Ingress.Domain, "domain", "d", "", "configures the domain name")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Ingress.TLS.Email, "tls-email", "", "", "the TLS email address to enable TLS on the domain")
 
 	// storage
 	cmd.Flags().StringVarP(&o.logsURL, "bucket-logs", "", "", "the bucket URL to store logs")
@@ -119,11 +124,11 @@ func NewCmdRequirementsEdit() (*cobra.Command, *Options) {
 	cmd.Flags().StringVarP(&o.reportsURL, "bucket-reports", "", "", "the bucket URL to store reports. If not specified default to te logs bucket")
 
 	// vault
-	cmd.Flags().StringVarP(&o.Requirements.Vault.Name, "vault-name", "", "", "specify the vault name")
-	cmd.Flags().StringVarP(&o.Requirements.Vault.Bucket, "vault-bucket", "", "", "specify the vault bucket")
-	cmd.Flags().StringVarP(&o.Requirements.Vault.Keyring, "vault-keyring", "", "", "specify the vault key ring")
-	cmd.Flags().StringVarP(&o.Requirements.Vault.Key, "vault-key", "", "", "specify the vault key")
-	cmd.Flags().StringVarP(&o.Requirements.Vault.ServiceAccount, "vault-sa", "", "", "specify the vault Service Account name")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Vault.Name, "vault-name", "", "", "specify the vault name")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Vault.Bucket, "vault-bucket", "", "", "specify the vault bucket")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Vault.Keyring, "vault-keyring", "", "", "specify the vault key ring")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Vault.Key, "vault-key", "", "", "specify the vault key")
+	cmd.Flags().StringVarP(&o.Requirements.Spec.Vault.ServiceAccount, "vault-sa", "", "", "specify the vault Service Account name")
 
 	return cmd, o
 }
@@ -134,11 +139,11 @@ func (o *Options) Run() error {
 	if err != nil {
 		return err
 	}
-	requirements := &requirementsResource.Spec
+
 	if fileName == "" {
 		fileName = filepath.Join(o.Dir, jxcore.RequirementsConfigFileName)
 	}
-	o.Requirements = *requirements
+	o.Requirements = &yrequirementsResource
 
 	// lets re-parse the CLI arguments to re-populate the loaded requirements
 	err = o.Cmd.Flags().Parse(os.Args)
@@ -161,7 +166,7 @@ func (o *Options) Run() error {
 }
 
 func (o *Options) applyDefaults() error {
-	r := &o.Requirements
+	r := &o.Requirements.Spec
 
 	gitKind := r.Cluster.GitKind
 	if gitKind != "" && stringhelpers.StringArrayIndex(giturl.KindGits, gitKind) < 0 {
@@ -209,7 +214,7 @@ func (o *Options) applyDefaults() error {
 	if r.AutoUpdate.Schedule != "" {
 		r.AutoUpdate.Enabled = true
 	}
-	if r.Ingress.TLS.Email != "" {
+	if r.Ingress.TLS != nil && r.Ingress.TLS.Email != "" {
 		r.Ingress.TLS.Enabled = true
 	}
 

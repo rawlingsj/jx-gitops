@@ -20,9 +20,9 @@ func TestTemplater(t *testing.T) {
 	source := filepath.Join("test_data", "values.yaml.gotmpl")
 	require.FileExists(t, source)
 
-	requirements, _, err := jxcore.LoadRequirementsConfig("test_data", true)
+	requirementsResource, _, err := jxcore.LoadRequirementsConfig("test_data", true)
 	require.NoError(t, err, "failed to load requirements")
-
+	requirements := &requirementsResource.Spec
 	tmpl := templater.NewTemplater(requirements, []string{filepath.Join("test_data", "secrets.yaml")})
 
 	err = tmpl.Generate(source, tmpFileName)
